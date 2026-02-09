@@ -1,0 +1,32 @@
+# Render Blueprint – Cleanly backend API
+# Docs: https://render.com/docs/blueprint-spec
+#
+# 1. Connect this repo to Render (GitHub/GitLab).
+# 2. Add env vars in Dashboard: DATABASE_URL, JWT_SECRET (see backend/README.md).
+# 3. Apply Blueprint or create Web Service with root directory "backend".
+
+services:
+  - type: web
+    name: cleanly-api
+    runtime: node
+    region: singapore
+
+    rootDir: backend
+
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
+    startCommand: npm start
+
+    healthCheckPath: /api/v1/health
+
+    plan: free
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRY
+        value: 3600
+      - key: JWT_REFRESH_EXPIRY
+        value: 604800
+      # Add DATABASE_URL in Render Dashboard (Neon connection string)

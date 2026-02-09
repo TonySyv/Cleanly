@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  PROVIDER
+  COMPANY
+  EMPLOYEE
+  PLATFORM_ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum JobStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  passwordHash      String    @map("password_hash")
+  name             String
+  avatarUrl        String?   @map("avatar_url")
+  role             Role      @default(CUSTOMER)
+  companyId        String?   @map("company_id")
+  stripeCustomerId  String?   @map("stripe_customer_id")
+  stripeAccountId   String?   @map("stripe_account_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  company          Company?   @relation("CompanyUser", fields: [companyId], references: [id], onDelete: SetNull)
+  refreshTokens    RefreshToken[]
+  tasks            Task[]
+  bookings         Booking[]
+  jobsAsProvider   Job[]           @relation("JobProvider")
+  jobsAssigned     Job[]           @relation("JobAssignedEmployee")
+  providerProfile  ProviderProfile?
+  companyEmployee  CompanyEmployee? @relation("EmployeeLink")
+  companyAsOwner   Company?        @relation("CompanyOwner")
+
+  @@index([role])
+}
+
+model Task {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Service {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  basePriceCents  Int      @map("base_price_cents")
+  durationMinutes Int      @map("duration_minutes")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  bookingServices BookingService[]
+}
+
+model Booking {
+  id                    String        @id @default(uuid())
+  customerId             String        @map("customer_id")
+  status                BookingStatus @default(PENDING)
+  scheduledAt            DateTime      @map("scheduled_at")
+  address               String
+  totalPriceCents       Int           @map("total_price_cents")
+  stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  customer User   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    BookingService[]
+  job      Job?
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model BookingService {
+  id            String   @id @default(uuid())
+  bookingId     String   @map("booking_id")
+  serviceId     String   @map("service_id")
+  quantity      Int      @default(1)
+  priceCents    Int      @map("price_cents")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+}
+
+model Job {
+  id                  String    @id @default(uuid())
+  bookingId           String    @unique @map("booking_id")
+  providerId          String    @map("provider_id")
+  assignedEmployeeId  String?   @map("assigned_employee_id")
+  status              JobStatus @default(PENDING)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider User     @relation("JobProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  assignedEmployee User? @relation("JobAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+
+  @@index([providerId])
+  @@index([bookingId])
+}
+
+model ProviderProfile {
+  id                String             @id @default(uuid())
+  userId             String             @unique @map("user_id")
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  documentUrls       String[]           @map("document_urls")
+  offeredServiceIds  String[]           @map("offered_service_ids")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  ownerId   String   @unique @map("owner_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner    User              @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  employees User[]            @relation("CompanyUser")
+  employeeLinks CompanyEmployee[]
+}
+
+model CompanyEmployee {
+  id         String   @id @default(uuid())
+  companyId  String   @map("company_id")
+  userId     String   @unique @map("user_id")
+  role       String   @default("cleaner")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation("EmployeeLink", fields: [userId], references: [id], onDelete: Cascade)
+}
