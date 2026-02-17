@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.crashlytics)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -20,11 +21,26 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "com.example.cleanly.HiltTestRunner"
-        
-        // API Configuration
-        // For Android Emulator: use 10.0.2.2 to access localhost
-        // For Physical Device: use your computer's IP address (e.g., "http://192.168.1.100:3000/api/v1/")
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/api/v1/\"")
+    }
+
+    flavorDimensions += "env"
+    productFlavors {
+        create("local") {
+            dimension = "env"
+            versionNameSuffix = "-local"
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/api/v1/\"")
+            // No applicationIdSuffix so google-services.json (single client: com.example.cleanly) matches
+        }
+        create("dev") {
+            dimension = "env"
+            versionNameSuffix = "-dev"
+            buildConfigField("String", "API_BASE_URL", "\"https://your-dev-api.onrender.com/api/v1/\"")
+            // No applicationIdSuffix so google-services.json (single client: com.example.cleanly) matches
+        }
+        create("prod") {
+            dimension = "env"
+            buildConfigField("String", "API_BASE_URL", "\"https://your-prod-api.onrender.com/api/v1/\"")
+        }
     }
 
     buildTypes {
@@ -38,7 +54,7 @@ android {
         }
         debug {
             isMinifyEnabled = false
-            applicationIdSuffix = ".debug"
+            // No applicationIdSuffix so google-services.json (single client: com.example.cleanly) matches
         }
     }
     
@@ -54,10 +70,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-    
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
     }
     
     packaging {
@@ -80,6 +92,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.activity)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

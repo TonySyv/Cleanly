@@ -1,4 +1,13 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Load .env.local | .env.dev | .env.prod (default: local). See ENVIRONMENTS.md.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envName = process.env.ENV || 'local';
+const envPath = path.resolve(__dirname, '..', `.env.${envName}`);
+dotenv.config({ path: envPath });
+
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.js';

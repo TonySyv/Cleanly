@@ -19,8 +19,10 @@ function toBookingDto(booking) {
     status: b.status,
     scheduledAt: b.scheduledAt.toISOString(),
     address: b.address,
+    customerNotes: b.customerNotes ?? null,
     totalPriceCents: b.totalPriceCents,
     stripePaymentIntentId: b.stripePaymentIntentId ?? null,
+    cancelledAt: b.cancelledAt?.toISOString() ?? null,
     clientSecret: b.clientSecret ?? undefined,
     createdAt: b.createdAt.toISOString(),
     updatedAt: b.updatedAt.toISOString(),
@@ -36,6 +38,7 @@ function toBookingDto(booking) {
           id: b.job.id,
           status: b.job.status,
           providerId: b.job.providerId,
+          companyId: b.job.companyId ?? null,
           assignedEmployeeId: b.job.assignedEmployeeId ?? null,
         }
       : null,
@@ -77,7 +80,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/v1/bookings - create booking + payment intent
 router.post('/', async (req, res) => {
-  const { scheduledAt, address, items: itemsInput } = req.body ?? {};
+  const { scheduledAt, address, customerNotes, items: itemsInput } = req.body ?? {};
 
   if (!address || typeof address !== 'string' || !address.trim()) {
     return errorResponse(res, 'VALIDATION_ERROR', 'address is required');
@@ -136,6 +139,7 @@ router.post('/', async (req, res) => {
       status: 'PENDING',
       scheduledAt: scheduled,
       address: address.trim(),
+      customerNotes: typeof customerNotes === 'string' ? customerNotes.trim() || null : null,
       totalPriceCents,
       stripePaymentIntentId,
       items: {
@@ -209,7 +213,7 @@ router.patch('/:id/cancel', async (req, res) => {
   }
   const updated = await prisma.booking.update({
     where: { id },
-    data: { status: 'CANCELLED' },
+    data: { status: 'CANCELLED', cancelledAt: new Date() },
     include: { items: { include: { service: true } }, job: true },
   });
   return res.json(toBookingDto(updated));

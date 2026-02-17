@@ -1,8 +1,11 @@
 package com.example.cleanly.ui.screen.bookingdetail
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -11,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingDetailScreen(
     onNavigateBack: () -> Unit,
@@ -81,12 +85,17 @@ fun BookingDetailScreen(
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    booking.items.forEach { item ->
-                        Text(
-                            text = "${item.serviceName ?: item.serviceId} x${item.quantity} — $${item.priceCents / 100.0}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        userScrollEnabled = false
+                    ) {
+                        items(booking.items) { item ->
+                            Text(
+                                text = "${item.serviceName ?: item.serviceId} x${item.quantity} — $${item.priceCents / 100.0}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     if (booking.status == "PENDING" || booking.status == "CONFIRMED") {
                         Spacer(modifier = Modifier.height(24.dp))

@@ -17,6 +17,7 @@ function toJobDto(job) {
     id: j.id,
     bookingId: j.bookingId,
     providerId: j.providerId,
+    companyId: j.companyId ?? null,
     assignedEmployeeId: j.assignedEmployeeId ?? null,
     status: j.status,
     createdAt: j.createdAt.toISOString(),
@@ -48,8 +49,17 @@ function toJobDto(job) {
 // GET /api/v1/jobs - list jobs for this provider or company
 router.get('/', async (req, res) => {
   const userId = req.userId;
+  const role = req.role;
+  const where =
+    role === 'COMPANY'
+      ? await (async () => {
+          const company = await prisma.company.findUnique({ where: { ownerId: userId } });
+          if (!company) return { providerId: userId };
+          return { OR: [{ providerId: userId }, { companyId: company.id }] };
+        })()
+      : { providerId: userId };
   const jobs = await prisma.job.findMany({
-    where: { providerId: userId },
+    where,
     orderBy: { createdAt: 'desc' },
     include: {
       booking: {
@@ -82,12 +92,17 @@ router.post('/', async (req, res) => {
   if (booking.status !== 'CONFIRMED' && booking.status !== 'PENDING') {
     return errorResponse(res, 'VALIDATION_ERROR', 'Booking cannot be picked up', 400);
   }
+  const data = {
+    bookingId: booking.id,
+    providerId: req.userId,
+    status: 'PENDING',
+  };
+  if (req.role === 'COMPANY') {
+    const company = await prisma.company.findUnique({ where: { ownerId: req.userId } });
+    if (company) data.companyId = company.id;
+  }
   const job = await prisma.job.create({
-    data: {
-      bookingId: booking.id,
-      providerId: req.userId,
-      status: 'PENDING',
-    },
+    data,
     include: {
       booking: {
         include: {
@@ -118,7 +133,10 @@ router.patch('/:id', async (req, res) => {
   if (!job) {
     return errorResponse(res, 'NOT_FOUND', 'Job not found', 404);
   }
-  if (job.providerId !== req.userId) {
+  const isProvider = job.providerId === req.userId;
+  const company = req.role === 'COMPANY' ? await prisma.company.findUnique({ where: { ownerId: req.userId } }) : null;
+  const isCompanyOwner = company && job.companyId === company.id;
+  if (!isProvider && !isCompanyOwner) {
     return errorResponse(res, 'FORBIDDEN', 'Access denied', 403);
   }
   const data = {};

@@ -36,28 +36,72 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum RecurringSchedule {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum RecurringSeriesStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum PromotionType {
+  PERCENT
+  FIXED_CENTS
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum PaymentTransactionType {
+  CHARGE
+  REFUND
+  PAYOUT
+}
+
 model User {
   id               String    @id @default(uuid())
   email            String    @unique
-  passwordHash      String    @map("password_hash")
+  passwordHash     String    @map("password_hash")
   name             String
+  phone            String?
   avatarUrl        String?   @map("avatar_url")
   role             Role      @default(CUSTOMER)
   companyId        String?   @map("company_id")
-  stripeCustomerId  String?   @map("stripe_customer_id")
-  stripeAccountId   String?   @map("stripe_account_id")
+  stripeCustomerId String?   @map("stripe_customer_id")
+  stripeAccountId  String?   @map("stripe_account_id")
+  emailVerifiedAt  DateTime? @map("email_verified_at")
+  phoneVerifiedAt  DateTime? @map("phone_verified_at")
+  deletedAt        DateTime? @map("deleted_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  company          Company?   @relation("CompanyUser", fields: [companyId], references: [id], onDelete: SetNull)
-  refreshTokens    RefreshToken[]
-  tasks            Task[]
-  bookings         Booking[]
-  jobsAsProvider   Job[]           @relation("JobProvider")
-  jobsAssigned     Job[]           @relation("JobAssignedEmployee")
-  providerProfile  ProviderProfile?
-  companyEmployee  CompanyEmployee? @relation("EmployeeLink")
-  companyAsOwner   Company?        @relation("CompanyOwner")
+  company              Company?               @relation("CompanyUser", fields: [companyId], references: [id], onDelete: SetNull)
+  refreshTokens        RefreshToken[]
+  tasks                Task[]
+  bookings             Booking[]
+  jobsAsProvider       Job[]                  @relation("JobProvider")
+  jobsAssigned         Job[]                  @relation("JobAssignedEmployee")
+  providerProfile      ProviderProfile?
+  companyEmployee      CompanyEmployee?       @relation("EmployeeLink")
+  companyAsOwner       Company?               @relation("CompanyOwner")
+  servicesCreated      Service[]              @relation("ServiceCreator")
+  addresses            Address[]
+  notifications        Notification[]
+  recurringSeries      RecurringSeries[]
+  reviewsGiven         Review[]               @relation("ReviewCustomer")
+  reviewsReceived      Review[]               @relation("ReviewProvider")
+  providerAvailability ProviderAvailability[]
+  providerServices     ProviderService[]
+  favoritesAsCustomer  CustomerFavorite[]     @relation("FavoriteCustomer")
+  favoritesAsProvider  CustomerFavorite[]     @relation("FavoriteProvider")
+  auditLogs            AuditLog[]
 
   @@index([role])
 }
@@ -84,70 +128,107 @@ model RefreshToken {
 }
 
 model Service {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   name            String
   description     String?
-  basePriceCents  Int      @map("base_price_cents")
-  durationMinutes Int      @map("duration_minutes")
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  basePriceCents  Int       @map("base_price_cents")
+  durationMinutes Int       @map("duration_minutes")
+  active          Boolean   @default(true)
+  currency        String?
+  categoryId      String?   @map("category_id")
+  createdById     String?   @map("created_by_id")
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  bookingServices BookingService[]
+  category         ServiceCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy        User?             @relation("ServiceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  bookingServices  BookingService[]
+  providerServices ProviderService[]
+
+  @@index([createdById])
+  @@index([active])
+  @@index([categoryId])
 }
 
 model Booking {
   id                    String        @id @default(uuid())
-  customerId             String        @map("customer_id")
+  customerId            String        @map("customer_id")
   status                BookingStatus @default(PENDING)
-  scheduledAt            DateTime      @map("scheduled_at")
+  scheduledAt           DateTime      @map("scheduled_at")
+  scheduledEndAt        DateTime?     @map("scheduled_end_at")
   address               String
+  addressId             String?       @map("address_id")
+  customerNotes         String?       @map("customer_notes")
   totalPriceCents       Int           @map("total_price_cents")
+  discountCents         Int           @default(0) @map("discount_cents")
+  currency              String?       @default("USD")
+  locale                String?
   stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  promotionId           String?       @map("promotion_id")
+  recurringSeriesId     String?       @map("recurring_series_id")
+  cancelledAt           DateTime?     @map("cancelled_at")
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
-  customer User   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  items    BookingService[]
-  job      Job?
+  customer            User                 @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  addressRef          Address?             @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  promotion           Promotion?           @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  recurringSeries     RecurringSeries?     @relation(fields: [recurringSeriesId], references: [id], onDelete: SetNull)
+  items               BookingService[]
+  job                 Job?
+  review              Review?
+  refunds             Refund[]
+  paymentTransactions PaymentTransaction[]
 
   @@index([customerId])
   @@index([status])
+  @@index([recurringSeriesId])
+  @@index([addressId])
+  @@index([promotionId])
 }
 
 model BookingService {
-  id            String   @id @default(uuid())
-  bookingId     String   @map("booking_id")
-  serviceId     String   @map("service_id")
-  quantity      Int      @default(1)
-  priceCents    Int      @map("price_cents")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  bookingId  String   @map("booking_id")
+  serviceId  String   @map("service_id")
+  quantity   Int      @default(1)
+  priceCents Int      @map("price_cents")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@index([serviceId])
 }
 
 model Job {
-  id                  String    @id @default(uuid())
-  bookingId           String    @unique @map("booking_id")
-  providerId          String    @map("provider_id")
-  assignedEmployeeId  String?   @map("assigned_employee_id")
-  status              JobStatus @default(PENDING)
-  createdAt           DateTime  @default(now()) @map("created_at")
+  id                 String    @id @default(uuid())
+  bookingId          String    @unique @map("booking_id")
+  providerId         String    @map("provider_id") // user who picked up (owner if company)
+  companyId          String?   @map("company_id") // set when a company picks up
+  assignedEmployeeId String?   @map("assigned_employee_id")
+  status             JobStatus @default(PENDING)
+  createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  provider User     @relation("JobProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  assignedEmployee User? @relation("JobAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider         User     @relation("JobProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  company          Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignedEmployee User?    @relation("JobAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  review           Review?
 
   @@index([providerId])
+  @@index([companyId])
   @@index([bookingId])
 }
 
 model ProviderProfile {
-  id                String             @id @default(uuid())
+  id                 String             @id @default(uuid())
   userId             String             @unique @map("user_id")
   verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verificationNotes  String?            @map("verification_notes") // admin reason e.g. rejection
   documentUrls       String[]           @map("document_urls")
   offeredServiceIds  String[]           @map("offered_service_ids")
   createdAt          DateTime           @default(now()) @map("created_at")
@@ -157,25 +238,280 @@ model ProviderProfile {
 }
 
 model Company {
-  id        String   @id @default(uuid())
-  ownerId   String   @unique @map("owner_id")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  ownerId         String   @unique @map("owner_id")
+  name            String
+  stripeAccountId String?  @map("stripe_account_id") // Stripe Connect for payouts
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  owner    User              @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  employees User[]            @relation("CompanyUser")
+  owner         User                @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  employees     User[]              @relation("CompanyUser")
   employeeLinks CompanyEmployee[]
+  jobs          Job[]
+  invitations   CompanyInvitation[]
 }
 
 model CompanyEmployee {
-  id         String   @id @default(uuid())
-  companyId  String   @map("company_id")
-  userId     String   @unique @map("user_id")
-  role       String   @default("cleaner")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  userId    String   @unique @map("user_id")
+  role      String   @default("cleaner")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user    User    @relation("EmployeeLink", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Idempotency for booking creation and payment (return cached result on replay)
+model IdempotencyKey {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  resourceType String   @map("resource_type")
+  resourceId   String   @map("resource_id")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+}
+
+// Post-booking ratings and provider reply (rating 1-5 enforced in app/DB check)
+model Review {
+  id            String    @id @default(uuid())
+  bookingId     String    @unique @map("booking_id")
+  jobId         String?   @unique @map("job_id")
+  customerId    String    @map("customer_id")
+  providerId    String    @map("provider_id")
+  rating        Int // 1-5; validate in app or add DB check
+  comment       String?
+  providerReply String?   @map("provider_reply")
+  repliedAt     DateTime? @map("replied_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  job      Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  customer User    @relation("ReviewCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  provider User    @relation("ReviewProvider", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([bookingId])
+}
+
+// Recurring booking series (e.g. weekly clean)
+model RecurringSeries {
+  id                 String                @id @default(uuid())
+  customerId         String                @map("customer_id")
+  schedule           RecurringSchedule
+  dayOfWeek          Int?                  @map("day_of_week")
+  preferredTimeStart String?               @map("preferred_time_start")
+  preferredTimeEnd   String?               @map("preferred_time_end")
+  address            String
+  customerNotes      String?               @map("customer_notes")
+  status             RecurringSeriesStatus @default(ACTIVE)
+  startsAt           DateTime              @map("starts_at")
+  endsAt             DateTime?             @map("ends_at")
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+
+  customer User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([customerId])
+}
+
+// Discount codes and promotions
+model Promotion {
+  id               String        @id @default(uuid())
+  code             String        @unique
+  type             PromotionType
+  value            Int
+  currency         String?
+  minBookingCents  Int?          @map("min_booking_cents")
+  maxDiscountCents Int?          @map("max_discount_cents")
+  validFrom        DateTime?     @map("valid_from")
+  validUntil       DateTime?     @map("valid_until")
+  maxUses          Int?          @map("max_uses")
+  useCount         Int           @default(0) @map("use_count")
+  active           Boolean       @default(true)
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  bookings Booking[]
+}
+
+// Saved addresses for customers
+model Address {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  label      String
+  line1      String   @map("line_1")
+  line2      String?  @map("line_2")
+  city       String?
+  postalCode String?  @map("postal_code")
+  country    String?
+  latitude   Float?
+  longitude  Float?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([userId])
+}
+
+// In-app and push notification storage
+model Notification {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  type         String
+  title        String
+  body         String?
+  readAt       DateTime? @map("read_at")
+  resourceType String?   @map("resource_type")
+  resourceId   String?   @map("resource_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, readAt])
+}
+
+// Service catalog grouping (e.g. Deep clean, Regular)
+model ServiceCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String?  @unique
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  services Service[]
+
+  @@index([active])
+}
+
+// Provider weekly availability slots
+model ProviderAvailability {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  dayOfWeek  Int       @map("day_of_week")
+  startTime  Int       @map("start_time")
+  endTime    Int       @map("end_time")
+  validFrom  DateTime? @map("valid_from")
+  validUntil DateTime? @map("valid_until")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Per-provider service pricing and duration override
+model ProviderService {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  serviceId       String   @map("service_id")
+  priceCents      Int?     @map("price_cents")
+  durationMinutes Int?     @map("duration_minutes")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serviceId])
+  @@index([userId])
+  @@index([serviceId])
+}
+
+// Refund records per booking
+model Refund {
+  id             String       @id @default(uuid())
+  bookingId      String       @map("booking_id")
+  amountCents    Int          @map("amount_cents")
+  reason         String?
+  stripeRefundId String?      @unique @map("stripe_refund_id")
+  status         RefundStatus @default(PENDING)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+// Payment audit trail (charges, refunds, payouts)
+model PaymentTransaction {
+  id                    String                 @id @default(uuid())
+  bookingId             String?                @map("booking_id")
+  type                  PaymentTransactionType
+  amountCents           Int                    @map("amount_cents")
+  currency              String
+  stripePaymentIntentId String?                @map("stripe_payment_intent_id")
+  stripeRefundId        String?                @map("stripe_refund_id")
+  metadata              Json?                  @map("metadata")
+  createdAt             DateTime               @default(now()) @map("created_at")
+
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([createdAt])
+}
+
+// Admin and sensitive action audit log
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String?  @map("user_id")
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  payload      Json?
+  ip           String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([resourceType])
+  @@index([resourceId])
+  @@index([createdAt])
+}
+
+// Customer favorite providers for quick rebook
+model CustomerFavorite {
+  id         String   @id @default(uuid())
+  customerId String   @map("customer_id")
+  providerId String   @map("provider_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  customer User @relation("FavoriteCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  provider User @relation("FavoriteProvider", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, providerId])
+  @@index([customerId])
+}
+
+// Company employee invite by email
+model CompanyInvitation {
+  id         String    @id @default(uuid())
+  companyId  String    @map("company_id")
+  email      String
+  role       String    @default("cleaner")
+  token      String    @unique
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([token])
+  @@index([email])
 }

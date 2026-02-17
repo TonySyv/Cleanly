@@ -17,6 +17,8 @@ local.properties
 # Environment and secrets (backend / dev)
 .env
 .env.local
+.env.dev
+.env.prod
 .env.*.local
 
 # Node.js (backend & mock)
