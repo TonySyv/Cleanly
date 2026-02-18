@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
+// Provider and company use the same cabinet: same profile, verification, and job-pickup flow (see BOOKING_PLATFORM_PLAN § 0).
 router.use(requireAuth);
 router.use(requireRole(['PROVIDER', 'COMPANY']));
 

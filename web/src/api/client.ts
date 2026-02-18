@@ -35,6 +35,12 @@ export const authApi = {
     }),
 }
 
+export const usersApi = {
+  get: (id: string) => api<User>(`/users/${id}`),
+  update: (id: string, data: { name?: string; avatarUrl?: string }) =>
+    api<User>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+}
+
 export type Service = {
   id: string
   name: string
@@ -56,6 +62,51 @@ export const adminServicesApi = {
 }
 
 export const servicesApi = { list: () => api<Service[]>('/services') }
+
+// Customer bookings
+export type BookingItem = {
+  id: string
+  serviceId: string
+  serviceName: string | null
+  quantity: number
+  priceCents: number
+}
+
+export type Booking = {
+  id: string
+  customerId: string
+  status: string
+  scheduledAt: string
+  address: string
+  customerNotes: string | null
+  totalPriceCents: number
+  stripePaymentIntentId: string | null
+  clientSecret?: string
+  createdAt: string
+  updatedAt: string
+  items: BookingItem[]
+  job?: { id: string; status: string; providerId: string; companyId?: string | null; assignedEmployeeId?: string | null }
+  provider?: { id: string; name: string; email: string }
+}
+
+export type CreateBookingItem = { serviceId: string; quantity: number }
+export type CreateBookingRequest = {
+  scheduledAt: string
+  address: string
+  customerNotes?: string
+  items: CreateBookingItem[]
+}
+
+export const bookingsApi = {
+  list: () => api<Booking[]>('/bookings'),
+  get: (id: string) => api<Booking>(`/bookings/${id}`),
+  create: (data: CreateBookingRequest) =>
+    api<Booking>('/bookings', { method: 'POST', body: JSON.stringify(data) }),
+  cancel: (id: string) =>
+    api<Booking>(`/bookings/${id}/cancel`, { method: 'PATCH' }),
+  confirmPayment: (id: string) =>
+    api<Booking>(`/bookings/${id}/confirm-payment`, { method: 'POST' }),
+}
 
 export type Job = {
   id: string

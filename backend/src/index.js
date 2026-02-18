@@ -15,15 +15,18 @@ import userRoutes from './routes/users.js';
 import taskRoutes from './routes/tasks.js';
 import servicesRoutes from './routes/services.js';
 import bookingsRoutes from './routes/bookings.js';
+import addressesRoutes from './routes/addresses.js';
 import jobsRoutes from './routes/jobs.js';
 import providerRoutes from './routes/provider.js';
 import adminServicesRoutes from './routes/admin/services.js';
 import stripeWebhookRoutes from './routes/webhooks/stripe.js';
+import { requestLogger } from './middleware/requestLogger.js';
 import { prisma } from './lib/db.js';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 const app = express();
+app.use(requestLogger);
 app.use(cors());
 
 // Stripe webhook needs raw body for signature verification
@@ -40,12 +43,17 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/services', servicesRoutes);
 app.use('/api/v1/bookings', bookingsRoutes);
+app.use('/api/v1/addresses', addressesRoutes);
 app.use('/api/v1/jobs', jobsRoutes);
 app.use('/api/v1/provider', providerRoutes);
 app.use('/api/v1/admin/services', adminServicesRoutes);
 
 app.use((err, req, res, next) => {
-  console.error(err);
+  const requestId = req.id ?? res.locals?.requestId ?? '-';
+  console.error(
+    `[${new Date().toISOString()}] id=${requestId} method=${req.method} path=${req.originalUrl} userId=${req.userId ?? '-'} error=`,
+    err
+  );
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',

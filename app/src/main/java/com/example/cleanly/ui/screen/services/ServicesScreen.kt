@@ -4,8 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -19,6 +18,7 @@ import com.example.cleanly.data.remote.model.ServiceDto
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServicesScreen(
+    onOpenDrawer: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToCheckout: (String) -> Unit,
     viewModel: ServicesViewModel = hiltViewModel()
@@ -30,29 +30,14 @@ fun ServicesScreen(
             TopAppBar(
                 title = { Text("Choose services") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Text("Back", color = MaterialTheme.colorScheme.primary)
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                actions = {
-                    if (uiState.cart.isNotEmpty()) {
-                        IconButton(onClick = {
-                            val cartStr = uiState.cart.joinToString(",") { "${it.service.id}:${it.quantity}" }
-                            onNavigateToCheckout(cartStr)
-                        }) {
-                            Box {
-                                Icon(Icons.Default.ShoppingCart, contentDescription = "Checkout")
-                                Badge(modifier = Modifier.offset((-4.dp), 4.dp)) {
-                                    Text(uiState.cart.sumOf { it.quantity }.toString())
-                                }
-                            }
-                        }
-                    }
-                }
+                )
             )
         }
     ) { padding ->
@@ -85,6 +70,17 @@ fun ServicesScreen(
                 ) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
+            } else if (uiState.services.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No services available yet",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
@@ -93,8 +89,7 @@ fun ServicesScreen(
                     items(uiState.services) { service ->
                         ServiceItem(
                             service = service,
-                            inCartQuantity = uiState.cart.find { it.service.id == service.id }?.quantity ?: 0,
-                            onAdd = { viewModel.addToCart(service) }
+                            onBook = { onNavigateToCheckout("${service.id}:1") }
                         )
                     }
                 }
@@ -106,8 +101,7 @@ fun ServicesScreen(
 @Composable
 private fun ServiceItem(
     service: ServiceDto,
-    inCartQuantity: Int,
-    onAdd: () -> Unit
+    onBook: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -138,13 +132,9 @@ private fun ServiceItem(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            FilledTonalButton(
-                onClick = onAdd,
-                content = {
-                    if (inCartQuantity > 0) Text("$inCartQuantity")
-                    else Icon(Icons.Default.Add, contentDescription = "Add")
-                }
-            )
+            FilledTonalButton(onClick = onBook) {
+                Text("Book")
+            }
         }
     }
 }

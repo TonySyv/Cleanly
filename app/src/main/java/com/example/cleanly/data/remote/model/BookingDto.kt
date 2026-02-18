@@ -18,6 +18,8 @@ data class BookingDto(
     val status: String,
     val scheduledAt: String,
     val address: String,
+    val addressId: String? = null,
+    val customerNotes: String? = null,
     val totalPriceCents: Int,
     val stripePaymentIntentId: String? = null,
     val clientSecret: String? = null,
@@ -38,7 +40,14 @@ data class BookingJobDto(
 @Serializable
 data class CreateBookingRequest(
     val scheduledAt: String,
-    val address: String,
+    val address: String = "",
+    val addressId: String? = null,
+    val customerNotes: String? = null,
+    val addressLine1: String? = null,
+    val addressLine2: String? = null,
+    val city: String? = null,
+    val postalCode: String? = null,
+    val country: String? = null,
     val items: List<CreateBookingItemRequest>
 )
 

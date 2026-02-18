@@ -21,7 +21,7 @@ router.get('/:id', async (req, res) => {
   }
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, name: true, avatarUrl: true, createdAt: true, updatedAt: true },
+    select: { id: true, email: true, name: true, avatarUrl: true, role: true, createdAt: true, updatedAt: true },
   });
   if (!user) {
     return errorResponse(res, 'USER_NOT_FOUND', 'User not found', 404);
@@ -43,7 +43,7 @@ router.put('/:id', async (req, res) => {
   const user = await prisma.user.update({
     where: { id },
     data,
-    select: { id: true, email: true, name: true, avatarUrl: true, createdAt: true, updatedAt: true },
+    select: { id: true, email: true, name: true, avatarUrl: true, role: true, createdAt: true, updatedAt: true },
   });
   return res.json(toUserDto(user));
 });

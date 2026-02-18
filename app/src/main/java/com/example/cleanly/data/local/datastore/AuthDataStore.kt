@@ -23,6 +23,10 @@ class AuthDataStore @Inject constructor(
         preferences[AUTH_TOKEN_KEY]
     }
 
+    val userId: Flow<String?> = dataStore.data.map { preferences ->
+        preferences[USER_ID_KEY]
+    }
+
     suspend fun saveAuthToken(token: String) {
         dataStore.edit { preferences ->
             preferences[AUTH_TOKEN_KEY] = token

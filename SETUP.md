@@ -39,14 +39,16 @@ buildConfigField("String", "API_BASE_URL", "\"https://your-api.render.com/api/v1
 
 ### 4. Build the Project
 
+The build requires **Java 17** (AGP 8.x and Firebase Crashlytics). Ensure `JAVA_HOME` points to a JDK 17 installation, or build from Android Studio (it uses its bundled JDK 17).
+
 From the project root directory:
 
 ```bash
 # Windows
-gradlew.bat build
+.\gradlew.bat assembleDebug
 
 # macOS/Linux
-./gradlew build
+./gradlew assembleDebug
 ```
 
 Or use Android Studio:
@@ -99,9 +101,22 @@ For local backend development, the project uses a `.env` file in the project roo
 - `DATABASE_URL` in `.env` is set to your Neon PostgreSQL connection string for dev.
 - When deploying (e.g. Render), set `DATABASE_URL` in the service environment, not from this file.
 
+### Backend database seed
+
+After running migrations (`npx prisma db push` or `npx prisma migrate deploy`), run the seed so the app has services and test data:
+
+From **`backend/`**:
+
+```bash
+npm run db:seed
+```
+
+This populates services (Regular clean, Deep clean, Move-out clean), test users (customer@test.com, admin@test.com, etc.; password: `password123`), and optional sample bookings. Without it, `GET /services` returns an empty list and the app will feel empty.
+
 ### Quick Backend Checklist
 
 - [ ] Set up Neon PostgreSQL database
+- [ ] Run migrations and seed (`npm run db:seed` in backend/)
 - [ ] Deploy API to Render Web Service
 - [ ] Configure Cloudflare DNS and WAF
 - [ ] Update API_BASE_URL in build config

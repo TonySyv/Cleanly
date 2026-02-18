@@ -1,5 +1,6 @@
 package com.example.cleanly.ui.screen.auth
 
+import com.example.cleanly.BuildConfig
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -71,7 +72,63 @@ fun LoginScreen(
         TextButton(onClick = onNavigateToRegister) {
             Text("Don't have an account? Register")
         }
-        
+
+        if (BuildConfig.DEBUG) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "Test accounts (password: password123)",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.loginWithCredentials("customer@test.com", "password123") },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text("Customer", style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(
+                    onClick = { viewModel.loginWithCredentials("provider@test.com", "password123") },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text("Provider", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.loginWithCredentials("admin@test.com", "password123") },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text("Admin", style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(
+                    onClick = { viewModel.loginWithCredentials("company@test.com", "password123") },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text("Company", style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(
+                    onClick = { viewModel.loginWithCredentials("employee@test.com", "password123") },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text("Employee", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+
         uiState.errorMessage?.let { error ->
             Spacer(modifier = Modifier.height(16.dp))
             Text(

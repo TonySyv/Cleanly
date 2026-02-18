@@ -2,6 +2,21 @@
 
 > Plan for transforming Cleanly into a full cleaning-service booking platform. Use this doc for future reference when implementing features.
 
+## 0. Vision and principles (app plan)
+
+**Business model**
+
+- **Companies and individual providers are recruited the same way.** The platform does not compete with cleaning companies; it gives them customers. Both providers and companies are supply-side partners who receive bookings from Cleanly. Same onboarding, verification, and job-pickup flow for both; companies additionally have employees and can assign jobs to them.
+- **Provider/company parity:** Individual cleaners and cleaning companies are both recruited as supply-side partners. They use the same provider cabinet (web), same verification and “my services” flow, and the same job-pickup API (`GET /jobs`, `POST /jobs`). Companies additionally can create company employees and assign jobs to them. No separate “B2B” funnel—one recruitment and onboarding path for all service providers.
+
+**Payment strategy**
+
+- **Dummy backend first:** The backend supports a "dummy" payment mode (default) that always returns success (booking created, payment confirmed) so the full flow works without Stripe keys.
+- **Easy swap to real Stripe:** Payment code is behind a single abstraction (backend: payment provider interface; clients: same API contract). Swapping dummy for Stripe is config/env only (`PAYMENT_PROVIDER=dummy|stripe`), no change to booking or checkout logic.
+- **Payment quality bar:** Payment and money flows must meet 2025–2026 standards: idempotency where applicable, clear success/failure, no double charges, audit-friendly. Financial bugs are unacceptable; UI or logic bugs are lower risk.
+
+---
+
 ## Current state
 
 - **Android**: Kotlin, Jetpack Compose, Hilt, Room, Ktor client. Generic User + Task model; no roles, no cleaning domain.

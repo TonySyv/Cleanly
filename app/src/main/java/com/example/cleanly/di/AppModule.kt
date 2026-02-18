@@ -11,17 +11,25 @@ import com.example.cleanly.data.local.dao.UserDao
 import com.example.cleanly.data.local.datastore.AuthDataStore
 import com.example.cleanly.data.remote.api.ApiService
 import com.example.cleanly.data.remote.api.ApiServiceImpl
+import com.example.cleanly.data.repository.AddressRepositoryImpl
 import com.example.cleanly.data.repository.AuthRepositoryImpl
 import com.example.cleanly.data.repository.BookingRepositoryImpl
 import com.example.cleanly.data.repository.TaskRepositoryImpl
 import com.example.cleanly.data.repository.UserRepositoryImpl
+import com.example.cleanly.domain.repository.IAddressRepository
 import com.example.cleanly.domain.repository.IAuthRepository
 import com.example.cleanly.domain.repository.IBookingRepository
 import com.example.cleanly.domain.repository.ITaskRepository
 import com.example.cleanly.domain.repository.IUserRepository
+import com.example.cleanly.domain.usecase.address.CreateAddressUseCase
+import com.example.cleanly.domain.usecase.address.DeleteAddressUseCase
+import com.example.cleanly.domain.usecase.address.GetAddressesUseCase
+import com.example.cleanly.domain.usecase.address.UpdateAddressUseCase
 import com.example.cleanly.domain.usecase.booking.CancelBookingUseCase
 import com.example.cleanly.domain.usecase.booking.ConfirmBookingPaymentUseCase
 import com.example.cleanly.domain.usecase.booking.CreateBookingUseCase
+import com.example.cleanly.domain.usecase.booking.DefaultExecutePaymentUseCase
+import com.example.cleanly.domain.usecase.booking.ExecutePaymentUseCase
 import com.example.cleanly.domain.usecase.booking.GetBookingUseCase
 import com.example.cleanly.domain.usecase.booking.GetBookingsUseCase
 import com.example.cleanly.domain.usecase.booking.GetServicesUseCase
@@ -96,9 +104,10 @@ object AppModule {
     @Singleton
     fun provideAuthRepository(
         apiService: ApiService,
-        authDataStore: AuthDataStore
+        authDataStore: AuthDataStore,
+        userDao: UserDao
     ): IAuthRepository {
-        return AuthRepositoryImpl(apiService, authDataStore)
+        return AuthRepositoryImpl(apiService, authDataStore, userDao)
     }
 
     @Provides
@@ -125,6 +134,12 @@ object AppModule {
     @Singleton
     fun provideBookingRepository(apiService: ApiService): IBookingRepository {
         return BookingRepositoryImpl(apiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAddressRepository(apiService: ApiService): IAddressRepository {
+        return AddressRepositoryImpl(apiService)
     }
 
     @Provides
@@ -203,7 +218,31 @@ object AppModule {
     }
 
     @Provides
+    @Singleton
+    fun provideExecutePaymentUseCase(impl: DefaultExecutePaymentUseCase): ExecutePaymentUseCase = impl
+
+    @Provides
     fun provideCancelBookingUseCase(repository: IBookingRepository): CancelBookingUseCase {
         return CancelBookingUseCase(repository)
+    }
+
+    @Provides
+    fun provideGetAddressesUseCase(repository: IAddressRepository): GetAddressesUseCase {
+        return GetAddressesUseCase(repository)
+    }
+
+    @Provides
+    fun provideCreateAddressUseCase(repository: IAddressRepository): CreateAddressUseCase {
+        return CreateAddressUseCase(repository)
+    }
+
+    @Provides
+    fun provideUpdateAddressUseCase(repository: IAddressRepository): UpdateAddressUseCase {
+        return UpdateAddressUseCase(repository)
+    }
+
+    @Provides
+    fun provideDeleteAddressUseCase(repository: IAddressRepository): DeleteAddressUseCase {
+        return DeleteAddressUseCase(repository)
     }
 }

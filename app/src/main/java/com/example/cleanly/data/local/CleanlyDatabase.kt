@@ -10,7 +10,7 @@ import com.example.cleanly.data.local.entity.UserEntity
 
 @Database(
     entities = [UserEntity::class, TaskEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

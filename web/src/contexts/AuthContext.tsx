@@ -5,6 +5,8 @@ type AuthContextType = {
   user: User | null
   token: string | null
   login: (email: string, password: string) => Promise<void>
+  /** Bypass auth for testing; sets mock token and user. Remove or disable in production. */
+  loginAsTest: (role?: 'PLATFORM_ADMIN' | 'PROVIDER' | 'COMPANY') => void
   logout: () => void
   setUser: (u: User | null) => void
   isLoading: boolean
@@ -42,8 +44,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }
 
+  const loginAsTest = (role: 'PLATFORM_ADMIN' | 'PROVIDER' | 'COMPANY' = 'PLATFORM_ADMIN') => {
+    const testUser: User = {
+      id: 'test-user-id',
+      email: 'test@test.local',
+      name: 'Test User',
+      role,
+    }
+    localStorage.setItem('accessToken', 'test-access-token')
+    localStorage.setItem('refreshToken', 'test-refresh-token')
+    localStorage.setItem('user', JSON.stringify(testUser))
+    setToken('test-access-token')
+    setUser(testUser)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, setUser, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, loginAsTest, logout, setUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

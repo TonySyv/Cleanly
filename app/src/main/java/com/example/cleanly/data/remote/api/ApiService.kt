@@ -1,12 +1,15 @@
 package com.example.cleanly.data.remote.api
 
+import com.example.cleanly.data.remote.model.AddressDto
 import com.example.cleanly.data.remote.model.AuthRequest
 import com.example.cleanly.data.remote.model.AuthResponse
 import com.example.cleanly.data.remote.model.BookingDto
+import com.example.cleanly.data.remote.model.CreateAddressRequest
 import com.example.cleanly.data.remote.model.CreateBookingRequest
 import com.example.cleanly.data.remote.model.RegisterRequest
 import com.example.cleanly.data.remote.model.ServiceDto
 import com.example.cleanly.data.remote.model.TaskDto
+import com.example.cleanly.data.remote.model.UpdateAddressRequest
 import com.example.cleanly.data.remote.model.UserDto
 
 interface ApiService {
@@ -26,4 +29,9 @@ interface ApiService {
     suspend fun createBooking(request: CreateBookingRequest): Result<BookingDto>
     suspend fun confirmBookingPayment(bookingId: String): Result<BookingDto>
     suspend fun cancelBooking(bookingId: String): Result<BookingDto>
+
+    suspend fun getAddresses(): Result<List<AddressDto>>
+    suspend fun createAddress(request: CreateAddressRequest): Result<AddressDto>
+    suspend fun updateAddress(id: String, request: UpdateAddressRequest): Result<AddressDto>
+    suspend fun deleteAddress(id: String): Result<Unit>
 }

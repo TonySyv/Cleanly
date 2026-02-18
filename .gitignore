@@ -21,6 +21,10 @@ local.properties
 .env.prod
 .env.*.local
 
+# AI chunk prompts (local-only; do not commit)
+docs/AI_CHUNK_PROMPTS.md
+.cursor/AI_CHUNK_PROMPTS.md
+
 # Node.js (backend & mock)
 backend/node_modules/
 backend/package-lock.json

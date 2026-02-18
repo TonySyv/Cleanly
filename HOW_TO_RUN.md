@@ -22,8 +22,11 @@ From **`w:\AndroidStudioProjects\Cleanly\backend`**:
 npm install
 npx prisma generate
 npx prisma db push
+npm run db:seed
 npm start
 ```
+
+**Important:** Run `npm run db:seed` after migrations so the database has services (Regular clean, Deep clean, Move-out clean) and test users. Without seeding, the services list will be empty and the app will look empty. Seed creates: customer@test.com, provider@test.com, admin@test.com, company@test.com, employee@test.com (password: `password123`), plus promo code WELCOME10.
 
 The app is already configured to use `http://10.0.2.2:3000/api/v1/` when you run the backend on port 3000. See **`backend/README.md`** for details.
 
@@ -57,11 +60,13 @@ buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/api/v1/\"")
 
 From `w:\AndroidStudioProjects\Cleanly`:
 
-```bash
-gradlew.bat clean build
-```
+- **From Android Studio**: Build → Rebuild Project, then Run. The IDE uses Java 17.
+- **From command line**: Java 17 is required. Set `JAVA_HOME` to a JDK 17 installation (e.g. [Eclipse Temurin](https://adoptium.net/)), then run:
 
-Then run the app from Android Studio.
+```bash
+.\gradlew.bat assembleDebug
+```
+(or `gradlew.bat clean build` for a full build). Then run the app from Android Studio or install the APK from `app/build/outputs/apk/`.
 
 ### Step 4: Test the App
 

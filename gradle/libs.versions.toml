@@ -15,7 +15,7 @@ compose-compiler = "2.0.21"
 hilt = "2.52"
 androidxHilt = "1.2.0"
 navigation-compose = "2.8.4"
-room = "2.6.1"
+room = "2.8.4"
 datastore = "1.1.1"
 ktor = "3.0.3"
 coil = "2.7.0"
@@ -25,6 +25,7 @@ mockk = "1.13.13"
 turbine = "1.1.0"
 firebase-bom = "33.7.0"
 sentry = "7.3.0"
+stripe-android = "22.8.1"
 
 [libraries]
 # Core Android
@@ -104,6 +105,9 @@ firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics
 
 # Sentry (alternative to Firebase)
 sentry-android = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" }
+
+# Stripe (payment sheet)
+stripe-android = { group = "com.stripe", name = "stripe-android", version.ref = "stripe-android" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

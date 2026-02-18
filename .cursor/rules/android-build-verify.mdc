@@ -1,0 +1,22 @@
+---
+description: Run Android Gradle builds after significant changes to verify for errors
+globs: app/**/*.kt
+alwaysApply: true
+---
+
+# Android build verification
+
+After making significant changes to the Android app (e.g. multiple files, architecture/DI/navigation changes, or when asked to verify), run a Gradle build from the **project root** to catch compile and configuration errors.
+
+**From project root** `w:\AndroidStudioProjects\Cleanly`:
+
+- **Verify build (recommended after big changes):**
+  ```powershell
+  .\gradlew.bat assembleDebug
+  ```
+- **Clean + build** if dependencies or generated code might be stale:
+  ```powershell
+  .\gradlew.bat clean assembleDebug
+  ```
+
+Prefer running these in the Cursor terminal so the AI can read the output and fix any reported errors.

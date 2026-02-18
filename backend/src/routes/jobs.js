@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
+// Job pickup: same API for individual providers and companies (provider/company parity; see BOOKING_PLATFORM_PLAN § 0).
 router.use(requireAuth);
 router.use(requireRole(['PROVIDER', 'COMPANY']));
 

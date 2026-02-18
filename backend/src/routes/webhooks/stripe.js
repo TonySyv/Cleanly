@@ -6,9 +6,13 @@ const router = Router();
 /**
  * POST /api/v1/webhooks/stripe
  * Stripe sends raw JSON; must use express.raw() for this route (mounted in index before express.json()).
- * Verify with STRIPE_WEBHOOK_SECRET.
+ * Verify with STRIPE_WEBHOOK_SECRET. When PAYMENT_PROVIDER=dummy, no-op (no Stripe events for dummy intents).
  */
 router.post('/', async (req, res) => {
+  const provider = (process.env.PAYMENT_PROVIDER || 'dummy').toLowerCase();
+  if (provider !== 'stripe') {
+    return res.json({ received: true });
+  }
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
@@ -18,6 +22,7 @@ router.post('/', async (req, res) => {
       const Stripe = (await import('stripe')).default;
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
       const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      console.log(`Stripe webhook event type=${event.type} id=${event.id}`);
       if (event.type === 'payment_intent.succeeded') {
         const paymentIntent = event.data.object;
         const piId = paymentIntent.id;

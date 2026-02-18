@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { jobsApi, Job, providerApi, ProviderProfile, servicesApi, Service } from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
 
+// Menu visibility by role: see PERMISSIONS.md (Jobs, Profile & Services for all; Company & Employees for COMPANY only).
+
 export default function ProviderDashboard() {
   const { user, logout } = useAuth()
   const [profile, setProfile] = useState<ProviderProfile | null>(null)

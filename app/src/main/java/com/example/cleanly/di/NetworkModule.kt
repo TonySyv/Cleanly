@@ -70,6 +70,7 @@ object NetworkModule {
         tokenRefreshLoader: com.example.cleanly.data.remote.TokenRefreshLoader
     ): HttpClient {
         return HttpClient(Android) {
+            expectSuccess = true
             install(ContentNegotiation) {
                 json(
                     Json {

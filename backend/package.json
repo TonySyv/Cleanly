@@ -9,8 +9,13 @@
     "dev": "node --watch src/index.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:baseline": "node scripts/baseline-migrations.cjs",
     "db:migrate": "node scripts/run-with-env.cjs",
+    "db:seed": "npx prisma db seed",
     "db:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.cjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

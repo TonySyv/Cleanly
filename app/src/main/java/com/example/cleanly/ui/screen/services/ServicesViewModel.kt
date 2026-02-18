@@ -11,14 +11,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class CartItem(
-    val service: ServiceDto,
-    val quantity: Int
-)
-
 data class ServicesUiState(
     val services: List<ServiceDto> = emptyList(),
-    val cart: List<CartItem> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null
 )
@@ -49,39 +43,6 @@ class ServicesViewModel @Inject constructor(
                     )
                 }
         }
-    }
-
-    fun addToCart(service: ServiceDto, quantity: Int = 1) {
-        val cart = _uiState.value.cart.toMutableList()
-        val idx = cart.indexOfFirst { it.service.id == service.id }
-        if (idx >= 0) {
-            val newQ = (cart[idx].quantity + quantity).coerceAtLeast(1)
-            if (newQ <= 0) cart.removeAt(idx) else cart[idx] = cart[idx].copy(quantity = newQ)
-        } else {
-            cart.add(CartItem(service, quantity.coerceAtLeast(1)))
-        }
-        _uiState.value = _uiState.value.copy(cart = cart)
-    }
-
-    fun removeFromCart(serviceId: String) {
-        _uiState.value = _uiState.value.copy(
-            cart = _uiState.value.cart.filter { it.service.id != serviceId }
-        )
-    }
-
-    fun updateCartQuantity(serviceId: String, quantity: Int) {
-        if (quantity < 1) {
-            removeFromCart(serviceId)
-            return
-        }
-        val cart = _uiState.value.cart.map {
-            if (it.service.id == serviceId) it.copy(quantity = quantity) else it
-        }
-        _uiState.value = _uiState.value.copy(cart = cart)
-    }
-
-    fun clearCart() {
-        _uiState.value = _uiState.value.copy(cart = emptyList())
     }
 
     fun clearError() {

@@ -6,14 +6,14 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const { login, user, token } = useAuth()
+  const { login, loginAsTest, user, token } = useAuth()
   const navigate = useNavigate()
 
   if (token && user) {
     const role = user.role || 'CUSTOMER'
     if (role === 'PLATFORM_ADMIN') navigate('/admin', { replace: true })
     else if (role === 'PROVIDER' || role === 'COMPANY') navigate('/provider', { replace: true })
-    else navigate('/login', { replace: true })
+    else navigate('/', { replace: true })
     return null
   }
 
@@ -26,7 +26,7 @@ export default function Login() {
       const role = u.role || 'CUSTOMER'
       if (role === 'PLATFORM_ADMIN') navigate('/admin', { replace: true })
       else if (role === 'PROVIDER' || role === 'COMPANY') navigate('/provider', { replace: true })
-      else navigate('/login', { replace: true })
+      else navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     }
@@ -88,6 +88,26 @@ export default function Login() {
           }}
         >
           Log in
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            loginAsTest('PLATFORM_ADMIN')
+            navigate('/admin', { replace: true })
+          }}
+          style={{
+            width: '100%',
+            marginTop: 12,
+            padding: 12,
+            background: 'transparent',
+            color: '#888',
+            border: '1px dashed #444',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontSize: 14,
+          }}
+        >
+          Test (bypass auth)
         </button>
       </form>
     </div>

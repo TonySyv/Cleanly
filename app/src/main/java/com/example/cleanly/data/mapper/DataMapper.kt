@@ -15,6 +15,7 @@ fun UserDto.toDomain(): User {
         email = email,
         name = name,
         avatarUrl = avatarUrl,
+        role = role ?: "CUSTOMER",
         createdAt = parseTimestamp(createdAt),
         updatedAt = parseTimestamp(updatedAt)
     )
@@ -26,6 +27,7 @@ fun User.toEntity(): UserEntity {
         email = email,
         name = name,
         avatarUrl = avatarUrl,
+        role = role,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
@@ -37,6 +39,7 @@ fun UserEntity.toDomain(): User {
         email = email,
         name = name,
         avatarUrl = avatarUrl,
+        role = role,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

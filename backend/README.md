@@ -54,6 +54,15 @@ npm run dev
 
 Server runs at **http://localhost:3000**.
 
+## Payment provider
+
+Bookings use a payment abstraction. Set **PAYMENT_PROVIDER** in `.env` (or env in production):
+
+- **`dummy`** (default): No Stripe keys needed. Create booking then call `POST /bookings/:id/confirm-payment` to mark payment succeeded. Use for local/dev.
+- **`stripe`**: Real payments. Set **STRIPE_SECRET_KEY** and **STRIPE_WEBHOOK_SECRET** (for `POST /api/v1/webhooks/stripe`). See `.env.example`.
+
+Switching is config-only; booking and checkout logic stay the same.
+
 ## Android app configuration
 
 In `app/build.gradle.kts` set:

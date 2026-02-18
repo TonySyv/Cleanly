@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db.js';
+import { getPaymentProvider } from '../lib/payment/index.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
@@ -19,6 +20,7 @@ function toBookingDto(booking) {
     status: b.status,
     scheduledAt: b.scheduledAt.toISOString(),
     address: b.address,
+    addressId: b.addressId ?? null,
     customerNotes: b.customerNotes ?? null,
     totalPriceCents: b.totalPriceCents,
     stripePaymentIntentId: b.stripePaymentIntentId ?? null,
@@ -78,19 +80,68 @@ router.get('/:id', async (req, res) => {
   return res.json(dto);
 });
 
+// Format Address model to single display string
+function formatAddressString(addr) {
+  const parts = [addr.line1];
+  if (addr.line2?.trim()) parts.push(addr.line2.trim());
+  if (addr.city?.trim()) parts.push(addr.city.trim());
+  if (addr.postalCode?.trim()) parts.push(addr.postalCode.trim());
+  if (addr.country?.trim()) parts.push(addr.country.trim());
+  return parts.join(', ');
+}
+
 // POST /api/v1/bookings - create booking + payment intent
 router.post('/', async (req, res) => {
-  const { scheduledAt, address, customerNotes, items: itemsInput } = req.body ?? {};
+  const {
+    scheduledAt,
+    address,
+    addressId,
+    addressLine1,
+    addressLine2,
+    city,
+    postalCode,
+    country,
+    customerNotes,
+    items: itemsInput,
+  } = req.body ?? {};
 
-  if (!address || typeof address !== 'string' || !address.trim()) {
-    return errorResponse(res, 'VALIDATION_ERROR', 'address is required');
-  }
   const scheduled = scheduledAt ? new Date(scheduledAt) : null;
   if (!scheduled || Number.isNaN(scheduled.getTime())) {
     return errorResponse(res, 'VALIDATION_ERROR', 'scheduledAt must be a valid ISO date');
   }
   if (!Array.isArray(itemsInput) || itemsInput.length === 0) {
     return errorResponse(res, 'VALIDATION_ERROR', 'items array with at least one service is required');
+  }
+
+  let resolvedAddress = null;
+  let resolvedAddressId = null;
+
+  if (addressId && typeof addressId === 'string' && addressId.trim()) {
+    const addr = await prisma.address.findFirst({
+      where: { id: addressId.trim(), userId: req.userId },
+    });
+    if (!addr) {
+      return errorResponse(res, 'VALIDATION_ERROR', 'addressId not found or not owned by you');
+    }
+    resolvedAddress = formatAddressString(addr);
+    resolvedAddressId = addr.id;
+  } else if (addressLine1 && typeof addressLine1 === 'string' && addressLine1.trim()) {
+    const parts = [addressLine1.trim()];
+    if (addressLine2?.trim()) parts.push(addressLine2.trim());
+    if (city?.trim()) parts.push(city.trim());
+    if (postalCode?.trim()) parts.push(postalCode.trim());
+    if (country?.trim()) parts.push(country.trim());
+    resolvedAddress = parts.join(', ');
+  } else if (address && typeof address === 'string' && address.trim()) {
+    resolvedAddress = address.trim();
+  }
+
+  if (!resolvedAddress) {
+    return errorResponse(
+      res,
+      'VALIDATION_ERROR',
+      'Provide address (string), addressId (saved address), or addressLine1 (with optional city, postalCode, country)'
+    );
   }
 
   const serviceIds = [...new Set(itemsInput.map((i) => i.serviceId).filter(Boolean))];
@@ -113,32 +164,17 @@ router.post('/', async (req, res) => {
     bookingItems.push({ serviceId, quantity, priceCents, service });
   }
 
-  let stripePaymentIntentId = null;
-  let stripeClientSecret = null;
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (stripeKey) {
-    try {
-      const Stripe = (await import('stripe')).default;
-      const stripe = new Stripe(stripeKey);
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: totalPriceCents,
-        currency: 'usd',
-        automatic_payment_methods: { enabled: true },
-        metadata: { customerId: req.userId },
-      });
-      stripePaymentIntentId = paymentIntent.id;
-      stripeClientSecret = paymentIntent.client_secret;
-    } catch (err) {
-      console.error('Stripe PaymentIntent create error:', err.message);
-    }
-  }
+  const payment = await getPaymentProvider();
+  const { paymentIntentId: stripePaymentIntentId, clientSecret: stripeClientSecret } =
+    await payment.createPaymentIntent(totalPriceCents, 'usd', { customerId: req.userId });
 
   const booking = await prisma.booking.create({
     data: {
       customerId: req.userId,
       status: 'PENDING',
       scheduledAt: scheduled,
-      address: address.trim(),
+      address: resolvedAddress,
+      addressId: resolvedAddressId,
       customerNotes: typeof customerNotes === 'string' ? customerNotes.trim() || null : null,
       totalPriceCents,
       stripePaymentIntentId,
@@ -161,7 +197,7 @@ router.post('/', async (req, res) => {
   return res.status(201).json(dto);
 });
 
-// POST /api/v1/bookings/:id/confirm-payment - after client confirms with Stripe SDK
+// POST /api/v1/bookings/:id/confirm-payment - after client confirms (Stripe SDK or dummy "Confirm booking")
 router.post('/:id/confirm-payment', async (req, res) => {
   const { id } = req.params;
   const booking = await prisma.booking.findFirst({
@@ -174,23 +210,15 @@ router.post('/:id/confirm-payment', async (req, res) => {
   if (booking.status !== 'PENDING') {
     return res.json(toBookingDto(booking));
   }
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (stripeKey && booking.stripePaymentIntentId) {
-    try {
-      const Stripe = (await import('stripe')).default;
-      const stripe = new Stripe(stripeKey);
-      const pi = await stripe.paymentIntents.retrieve(booking.stripePaymentIntentId);
-      if (pi.status === 'succeeded') {
-        const updated = await prisma.booking.update({
-          where: { id },
-          data: { status: 'CONFIRMED' },
-          include: { items: { include: { service: true } }, job: true },
-        });
-        return res.json(toBookingDto(updated));
-      }
-    } catch (err) {
-      console.error('Stripe retrieve error:', err.message);
-    }
+  const payment = await getPaymentProvider();
+  const succeeded = await Promise.resolve(payment.isPaymentSucceeded(booking));
+  if (succeeded) {
+    const updated = await prisma.booking.update({
+      where: { id },
+      data: { status: 'CONFIRMED' },
+      include: { items: { include: { service: true } }, job: true },
+    });
+    return res.json(toBookingDto(updated));
   }
   return res.json(toBookingDto(booking));
 });

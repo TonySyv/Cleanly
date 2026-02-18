@@ -40,20 +40,34 @@ class LoginViewModel @Inject constructor(
             _uiState.value = currentState.copy(errorMessage = "Please fill in all fields")
             return
         }
+        performLogin(currentState.email, currentState.password)
+    }
 
+    /** Log in with given credentials (e.g. for "Use test account" so state is not relied on). */
+    fun loginWithCredentials(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Please fill in all fields")
+            return
+        }
+        _uiState.value = _uiState.value.copy(email = email, password = password, errorMessage = null)
+        performLogin(email, password)
+    }
+
+    private fun performLogin(email: String, password: String) {
         viewModelScope.launch {
+            val currentState = _uiState.value
             _uiState.value = currentState.copy(isLoading = true, errorMessage = null)
-            
-            loginUseCase(currentState.email, currentState.password)
+
+            loginUseCase(email, password)
                 .fold(
                     onSuccess = {
-                        _uiState.value = currentState.copy(
+                        _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             isLoginSuccessful = true
                         )
                     },
                     onFailure = { error ->
-                        _uiState.value = currentState.copy(
+                        _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             errorMessage = error.message ?: "Login failed"
                         )

@@ -66,6 +66,7 @@ router.post('/register', async (req, res) => {
 
 // POST /api/v1/auth/login
 router.post('/login', async (req, res) => {
+  console.log('[auth] POST /login received', { bodyKeys: req.body ? Object.keys(req.body) : [] });
   const { email, password } = req.body ?? {};
   if (!email || !password) {
     return errorResponse(res, 'VALIDATION_ERROR', 'Email and password are required');
