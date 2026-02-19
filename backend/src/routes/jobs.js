@@ -74,6 +74,37 @@ router.get('/', async (req, res) => {
   return res.json(jobs.map(toJobDto));
 });
 
+// GET /api/v1/jobs/available - bookings needing a provider (no job yet, CONFIRMED or PENDING)
+router.get('/available', async (req, res) => {
+  const bookings = await prisma.booking.findMany({
+    where: {
+      job: null,
+      status: { in: ['CONFIRMED', 'PENDING'] },
+    },
+    include: {
+      customer: { select: { id: true, name: true, email: true } },
+      items: { include: { service: true } },
+    },
+    orderBy: { scheduledAt: 'asc' },
+  });
+  const list = bookings.map((b) => ({
+    id: b.id,
+    status: b.status,
+    scheduledAt: b.scheduledAt.toISOString(),
+    address: b.address,
+    totalPriceCents: b.totalPriceCents,
+    customer: b.customer
+      ? { id: b.customer.id, name: b.customer.name, email: b.customer.email }
+      : null,
+    items: (b.items || []).map((i) => ({
+      serviceName: i.service?.name,
+      quantity: i.quantity,
+      priceCents: i.priceCents,
+    })),
+  }));
+  return res.json(list);
+});
+
 // POST /api/v1/jobs - pick up a booking
 router.post('/', async (req, res) => {
   const { bookingId } = req.body ?? {};
@@ -145,7 +176,16 @@ router.patch('/:id', async (req, res) => {
     data.status = status;
   }
   if (assignedEmployeeId !== undefined && req.role === 'COMPANY') {
-    data.assignedEmployeeId = assignedEmployeeId || null;
+    const newEmployeeId = assignedEmployeeId || null;
+    data.assignedEmployeeId = newEmployeeId;
+    if (newEmployeeId && job.companyId) {
+      const link = await prisma.companyEmployee.findFirst({
+        where: { companyId: job.companyId, userId: newEmployeeId },
+      });
+      if (!link) {
+        return errorResponse(res, 'VALIDATION_ERROR', 'Employee must belong to your company', 400);
+      }
+    }
   }
   const updated = await prisma.job.update({
     where: { id },

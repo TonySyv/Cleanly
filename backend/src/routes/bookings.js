@@ -90,8 +90,38 @@ function formatAddressString(addr) {
   return parts.join(', ');
 }
 
-// POST /api/v1/bookings - create booking + payment intent
+const IDEMPOTENCY_EXPIRY_HOURS = 24;
+
+// POST /api/v1/bookings - create booking + payment intent (idempotent when Idempotency-Key header is sent)
 router.post('/', async (req, res) => {
+  const idempotencyKeyRaw = req.headers['idempotency-key'];
+  const idempotencyKey = typeof idempotencyKeyRaw === 'string' ? idempotencyKeyRaw.trim() : null;
+
+  if (idempotencyKey) {
+    const now = new Date();
+    const cached = await prisma.idempotencyKey.findFirst({
+      where: {
+        key: idempotencyKey,
+        resourceType: 'booking',
+        expiresAt: { gt: now },
+      },
+    });
+    if (cached) {
+      const booking = await prisma.booking.findFirst({
+        where: { id: cached.resourceId, customerId: req.userId },
+        include: {
+          items: { include: { service: true } },
+          job: true,
+        },
+      });
+      if (booking) {
+        const dto = toBookingDto(booking);
+        return res.status(200).json(dto);
+      }
+      return errorResponse(res, 'CONFLICT', 'Idempotency key already used for another user', 409);
+    }
+  }
+
   const {
     scheduledAt,
     address,
@@ -192,6 +222,35 @@ router.post('/', async (req, res) => {
     },
   });
 
+  if (idempotencyKey) {
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + IDEMPOTENCY_EXPIRY_HOURS);
+    try {
+      await prisma.idempotencyKey.create({
+        data: {
+          key: idempotencyKey,
+          resourceType: 'booking',
+          resourceId: booking.id,
+          expiresAt,
+        },
+      });
+    } catch (err) {
+      if (err.code === 'P2002') {
+        const cached = await prisma.idempotencyKey.findFirst({
+          where: { key: idempotencyKey, resourceType: 'booking', expiresAt: { gt: new Date() } },
+        });
+        if (cached) {
+          const existing = await prisma.booking.findFirst({
+            where: { id: cached.resourceId, customerId: req.userId },
+            include: { items: { include: { service: true } }, job: true },
+          });
+          if (existing) return res.status(200).json(toBookingDto(existing));
+        }
+      }
+      throw err;
+    }
+  }
+
   const dto = toBookingDto(booking);
   dto.clientSecret = stripeClientSecret ?? undefined;
   return res.status(201).json(dto);
@@ -228,7 +287,7 @@ router.patch('/:id/cancel', async (req, res) => {
   const { id } = req.params;
   const booking = await prisma.booking.findFirst({
     where: { id, customerId: req.userId },
-    include: { job: true },
+    include: { items: { include: { service: true } }, job: true },
   });
   if (!booking) {
     return errorResponse(res, 'NOT_FOUND', 'Booking not found', 404);

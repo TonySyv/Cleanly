@@ -11,10 +11,7 @@ import com.example.cleanly.data.remote.model.UpdateAddressRequest
 import com.example.cleanly.data.remote.model.RefreshTokenRequest
 import com.example.cleanly.data.remote.model.RegisterRequest
 import com.example.cleanly.data.remote.model.ServiceDto
-import com.example.cleanly.data.remote.model.TaskDto
-import com.example.cleanly.data.remote.model.UpdateTaskRequest
 import com.example.cleanly.data.remote.model.UpdateUserRequest
-import com.example.cleanly.data.remote.model.CreateTaskRequest
 import com.example.cleanly.data.remote.model.UserDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -114,48 +111,6 @@ class ApiServiceImpl @Inject constructor(
                 setBody(RefreshTokenRequest(refreshToken))
             }
             Result.success(response.body())
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    override suspend fun getTasks(): Result<List<TaskDto>> {
-        return try {
-            val response = httpClient.get("${baseUrl}tasks")
-            Result.success(response.body())
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    override suspend fun createTask(title: String): Result<TaskDto> {
-        return try {
-            val response = httpClient.post("${baseUrl}tasks") {
-                contentType(ContentType.Application.Json)
-                setBody(CreateTaskRequest(title))
-            }
-            Result.success(response.body())
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    override suspend fun updateTask(taskId: String, title: String?, completed: Boolean?): Result<TaskDto> {
-        return try {
-            val response = httpClient.put("${baseUrl}tasks/$taskId") {
-                contentType(ContentType.Application.Json)
-                setBody(UpdateTaskRequest(title, completed))
-            }
-            Result.success(response.body())
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    override suspend fun deleteTask(taskId: String): Result<Unit> {
-        return try {
-            httpClient.delete("${baseUrl}tasks/$taskId")
-            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -12,7 +12,6 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
-import taskRoutes from './routes/tasks.js';
 import servicesRoutes from './routes/services.js';
 import bookingsRoutes from './routes/bookings.js';
 import addressesRoutes from './routes/addresses.js';
@@ -40,7 +39,6 @@ app.get('/api/v1/health', (req, res) => {
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/services', servicesRoutes);
 app.use('/api/v1/bookings', bookingsRoutes);
 app.use('/api/v1/addresses', addressesRoutes);

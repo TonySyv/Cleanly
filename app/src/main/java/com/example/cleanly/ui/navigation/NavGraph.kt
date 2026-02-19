@@ -23,8 +23,6 @@ import com.example.cleanly.ui.screen.addresses.AddEditAddressScreen
 import com.example.cleanly.ui.screen.addresses.AddressesScreen
 import com.example.cleanly.ui.screen.profile.ProfileScreen
 import com.example.cleanly.ui.screen.services.ServicesScreen
-import com.example.cleanly.ui.screen.tasks.AddEditTaskScreen
-import com.example.cleanly.ui.screen.tasks.TasksScreen
 import kotlinx.coroutines.launch
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.DrawerValue
@@ -61,12 +59,6 @@ sealed class Screen(val route: String) {
     object BookingDetail : Screen("booking_detail") {
         const val BOOKING_ID_ARG = "bookingId"
         fun route(bookingId: String) = "booking_detail/$bookingId"
-    }
-    object Tasks : Screen("tasks")
-    object AddEditTask : Screen("add_edit_task") {
-        const val TASK_ID_ARG = "taskId"
-        fun route(taskId: String? = null) =
-            if (taskId != null) "add_edit_task/$taskId" else "add_edit_task"
     }
 }
 
@@ -225,25 +217,6 @@ fun NavGraph(
                     }
                 }
             )
-        }
-        // Tasks: kept for compatibility but not in main drawer menu
-        composable(Screen.Tasks.route) {
-            TasksScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onAddTask = { navController.navigate(Screen.AddEditTask.route(null)) },
-                onEditTask = { taskId -> navController.navigate(Screen.AddEditTask.route(taskId)) }
-            )
-        }
-        composable(
-            route = "add_edit_task/{${Screen.AddEditTask.TASK_ID_ARG}}",
-            arguments = listOf(
-                navArgument(Screen.AddEditTask.TASK_ID_ARG) { type = NavType.StringType }
-            )
-        ) {
-            AddEditTaskScreen(onNavigateBack = { navController.popBackStack() })
-        }
-        composable("add_edit_task") {
-            AddEditTaskScreen(onNavigateBack = { navController.popBackStack() })
         }
         }
     }

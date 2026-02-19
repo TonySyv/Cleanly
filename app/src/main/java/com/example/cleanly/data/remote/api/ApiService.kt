@@ -8,7 +8,6 @@ import com.example.cleanly.data.remote.model.CreateAddressRequest
 import com.example.cleanly.data.remote.model.CreateBookingRequest
 import com.example.cleanly.data.remote.model.RegisterRequest
 import com.example.cleanly.data.remote.model.ServiceDto
-import com.example.cleanly.data.remote.model.TaskDto
 import com.example.cleanly.data.remote.model.UpdateAddressRequest
 import com.example.cleanly.data.remote.model.UserDto
 
@@ -18,10 +17,6 @@ interface ApiService {
     suspend fun getUserProfile(userId: String): Result<UserDto>
     suspend fun updateUserProfile(userId: String, name: String?, avatarUrl: String?): Result<UserDto>
     suspend fun refreshToken(refreshToken: String): Result<AuthResponse>
-    suspend fun getTasks(): Result<List<TaskDto>>
-    suspend fun createTask(title: String): Result<TaskDto>
-    suspend fun updateTask(taskId: String, title: String?, completed: Boolean?): Result<TaskDto>
-    suspend fun deleteTask(taskId: String): Result<Unit>
 
     suspend fun getServices(): Result<List<ServiceDto>>
     suspend fun getBookings(): Result<List<BookingDto>>

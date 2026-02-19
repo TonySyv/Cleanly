@@ -17,12 +17,12 @@ function toServiceDto(s) {
 }
 
 /**
- * GET /api/v1/services - List active services (public/customer for booking)
+ * GET /api/v1/services - List active services only (public/customer for booking).
+ * Inactive services are not exposed; admins use GET /api/v1/admin/services for full list.
  */
 router.get('/', async (req, res) => {
-  const activeOnly = req.query.active !== 'false';
   const services = await prisma.service.findMany({
-    where: activeOnly ? { active: true } : {},
+    where: { active: true },
     orderBy: { name: 'asc' },
   });
   return res.json(services.map(toServiceDto));

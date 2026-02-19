@@ -1,10 +1,7 @@
 package com.example.cleanly.data.mapper
 
-import com.example.cleanly.data.local.entity.TaskEntity
 import com.example.cleanly.data.local.entity.UserEntity
-import com.example.cleanly.data.remote.model.TaskDto
 import com.example.cleanly.data.remote.model.UserDto
-import com.example.cleanly.domain.model.Task
 import com.example.cleanly.domain.model.User
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -40,39 +37,6 @@ fun UserEntity.toDomain(): User {
         name = name,
         avatarUrl = avatarUrl,
         role = role,
-        createdAt = createdAt,
-        updatedAt = updatedAt
-    )
-}
-
-fun TaskDto.toDomain(): Task {
-    return Task(
-        id = id,
-        userId = userId,
-        title = title,
-        completed = completed,
-        createdAt = parseTimestamp(createdAt),
-        updatedAt = parseTimestamp(updatedAt)
-    )
-}
-
-fun Task.toEntity(): TaskEntity {
-    return TaskEntity(
-        id = id,
-        userId = userId,
-        title = title,
-        completed = completed,
-        createdAt = createdAt,
-        updatedAt = updatedAt
-    )
-}
-
-fun TaskEntity.toDomain(): Task {
-    return Task(
-        id = id,
-        userId = userId,
-        title = title,
-        completed = completed,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.example.cleanly.data.local.CleanlyDatabase
-import com.example.cleanly.data.local.dao.TaskDao
 import com.example.cleanly.data.local.dao.UserDao
 import com.example.cleanly.data.local.datastore.AuthDataStore
 import com.example.cleanly.data.remote.api.ApiService
@@ -14,12 +13,10 @@ import com.example.cleanly.data.remote.api.ApiServiceImpl
 import com.example.cleanly.data.repository.AddressRepositoryImpl
 import com.example.cleanly.data.repository.AuthRepositoryImpl
 import com.example.cleanly.data.repository.BookingRepositoryImpl
-import com.example.cleanly.data.repository.TaskRepositoryImpl
 import com.example.cleanly.data.repository.UserRepositoryImpl
 import com.example.cleanly.domain.repository.IAddressRepository
 import com.example.cleanly.domain.repository.IAuthRepository
 import com.example.cleanly.domain.repository.IBookingRepository
-import com.example.cleanly.domain.repository.ITaskRepository
 import com.example.cleanly.domain.repository.IUserRepository
 import com.example.cleanly.domain.usecase.address.CreateAddressUseCase
 import com.example.cleanly.domain.usecase.address.DeleteAddressUseCase
@@ -36,11 +33,6 @@ import com.example.cleanly.domain.usecase.booking.GetServicesUseCase
 import com.example.cleanly.domain.usecase.auth.LoginUseCase
 import com.example.cleanly.domain.usecase.auth.LogoutUseCase
 import com.example.cleanly.domain.usecase.auth.RegisterUseCase
-import com.example.cleanly.domain.usecase.task.CreateTaskUseCase
-import com.example.cleanly.domain.usecase.task.DeleteTaskUseCase
-import com.example.cleanly.domain.usecase.task.GetTasksUseCase
-import com.example.cleanly.domain.usecase.task.RefreshTasksUseCase
-import com.example.cleanly.domain.usecase.task.UpdateTaskUseCase
 import com.example.cleanly.domain.usecase.user.GetUserProfileUseCase
 import com.example.cleanly.di.AuthenticatedClient
 import com.example.cleanly.domain.usecase.user.UpdateUserProfileUseCase
@@ -90,12 +82,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideTaskDao(database: CleanlyDatabase): TaskDao {
-        return database.taskDao()
-    }
-
-    @Provides
-    @Singleton
     fun provideApiService(@AuthenticatedClient httpClient: HttpClient): ApiService {
         return ApiServiceImpl(httpClient)
     }
@@ -118,16 +104,6 @@ object AppModule {
         authDataStore: AuthDataStore
     ): IUserRepository {
         return UserRepositoryImpl(apiService, userDao, authDataStore)
-    }
-
-    @Provides
-    @Singleton
-    fun provideTaskRepository(
-        apiService: ApiService,
-        taskDao: TaskDao,
-        authDataStore: AuthDataStore
-    ): ITaskRepository {
-        return TaskRepositoryImpl(apiService, taskDao, authDataStore)
     }
 
     @Provides
@@ -165,31 +141,6 @@ object AppModule {
     @Provides
     fun provideUpdateUserProfileUseCase(userRepository: IUserRepository): UpdateUserProfileUseCase {
         return UpdateUserProfileUseCase(userRepository)
-    }
-
-    @Provides
-    fun provideGetTasksUseCase(taskRepository: ITaskRepository): GetTasksUseCase {
-        return GetTasksUseCase(taskRepository)
-    }
-
-    @Provides
-    fun provideRefreshTasksUseCase(taskRepository: ITaskRepository): RefreshTasksUseCase {
-        return RefreshTasksUseCase(taskRepository)
-    }
-
-    @Provides
-    fun provideCreateTaskUseCase(taskRepository: ITaskRepository): CreateTaskUseCase {
-        return CreateTaskUseCase(taskRepository)
-    }
-
-    @Provides
-    fun provideUpdateTaskUseCase(taskRepository: ITaskRepository): UpdateTaskUseCase {
-        return UpdateTaskUseCase(taskRepository)
-    }
-
-    @Provides
-    fun provideDeleteTaskUseCase(taskRepository: ITaskRepository): DeleteTaskUseCase {
-        return DeleteTaskUseCase(taskRepository)
     }
 
     @Provides
