@@ -34,6 +34,7 @@ data class BookingJobDto(
     val id: String,
     val status: String,
     val providerId: String,
+    val companyId: String? = null,
     val assignedEmployeeId: String? = null
 )
 

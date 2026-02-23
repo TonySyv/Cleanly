@@ -1,6 +1,5 @@
 package com.example.cleanly.ui.screen.checkout
 
-import android.app.Activity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,11 +16,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.activity.ComponentActivity
-import com.example.cleanly.data.remote.model.BookingDto
+import com.example.cleanly.ui.payment.LocalPaymentSheet
+import com.example.cleanly.ui.payment.StripePaymentSheetHolder
 import com.stripe.android.paymentsheet.PaymentSheet
 import com.stripe.android.paymentsheet.PaymentSheetResult
 import java.time.Instant
@@ -36,23 +34,7 @@ fun CheckoutScreen(
     viewModel: CheckoutViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
-    val activity = context as? ComponentActivity
-
-    var pendingStripeBooking by remember { mutableStateOf<BookingDto?>(null) }
-    val paymentSheet = remember(activity) {
-        activity?.let { act ->
-            PaymentSheet.Builder { result ->
-                when (result) {
-                    is PaymentSheetResult.Completed ->
-                        pendingStripeBooking?.let { viewModel.confirmAfterStripe(it.id) }
-                    is PaymentSheetResult.Canceled -> { }
-                    is PaymentSheetResult.Failed -> { }
-                }
-                pendingStripeBooking = null
-            }.build(act)
-        }
-    }
+    val paymentSheet = LocalPaymentSheet.current
 
     // When backend returns clientSecret, present Stripe Payment Sheet once; on success confirm with backend.
     LaunchedEffect(uiState.stripeClientSecret) {
@@ -60,7 +42,12 @@ fun CheckoutScreen(
         val sheet = paymentSheet ?: return@LaunchedEffect
         val booking = uiState.createdBooking ?: return@LaunchedEffect
         viewModel.clearStripeClientSecret() // clear so this effect does not re-run
-        pendingStripeBooking = booking
+        StripePaymentSheetHolder.pendingBookingId = booking.id
+        StripePaymentSheetHolder.listener = { result, bookingId ->
+            if (result is PaymentSheetResult.Completed) {
+                viewModel.confirmAfterStripe(bookingId)
+            }
+        }
         val config = PaymentSheet.Configuration(
             merchantDisplayName = "Cleanly"
         )
@@ -270,11 +257,12 @@ fun CheckoutScreen(
                     Spacer(modifier = Modifier.height(24.dp))
                     when {
                         uiState.createdBooking != null -> {
+                            val booking = uiState.createdBooking!!
                             Text(
-                                "Booking created. Total: $${uiState.createdBooking!!.totalPriceCents / 100.0}",
+                                "Booking created. Total: $${booking.totalPriceCents / 100.0}",
                                 style = MaterialTheme.typography.titleMedium
                             )
-                            if (uiState.createdBooking!!.clientSecret != null) {
+                            if (booking.clientSecret != null) {
                                 Text(
                                     "Use Stripe SDK with clientSecret to complete payment, then tap Confirm.",
                                     style = MaterialTheme.typography.bodySmall,
@@ -286,7 +274,7 @@ fun CheckoutScreen(
                                 onClick = { viewModel.confirmPayment() },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(if (uiState.createdBooking!!.clientSecret != null) "Confirm payment" else "Confirm booking")
+                                Text(if (booking.clientSecret != null) "Confirm payment" else "Confirm booking")
                             }
                         }
                         uiState.isLoading -> {
