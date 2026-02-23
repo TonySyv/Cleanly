@@ -91,6 +91,15 @@ The repo includes a **Render Blueprint** (`render.yaml` in the project root). To
 
 See **[DEPLOY.md](../DEPLOY.md)** in the project root for step-by-step Render deployment (Blueprint and manual).
 
+## Troubleshooting: Database connection (P1001)
+
+If you see **"Can't reach database server"** (Prisma `P1001`):
+
+1. **Neon projects suspend after inactivity.** Log into [Neon Console](https://console.neon.tech), open your project, and run any query or use "Restore" to wake the database. Then start the server again.
+2. **Check which env file is used.** The server loads `backend/.env.${ENV}`; default is `ENV=local` (so `backend/.env.local`). Set `DATABASE_URL` in that file and ensure it ends with `?sslmode=require` for Neon.
+3. **Test the URL:** From `backend/`, run `npx prisma db execute --stdin` and type `SELECT 1;` then Ctrl+Z and Enter (Windows) to see if Prisma can reach the DB.
+4. **Network:** If you're on a restricted network or VPN, try disabling VPN or another network; some firewalls block outbound port 5432.
+
 ## Scripts
 
 - `npm start` – run server

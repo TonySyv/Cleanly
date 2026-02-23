@@ -102,6 +102,8 @@ model User {
   favoritesAsCustomer  CustomerFavorite[]     @relation("FavoriteCustomer")
   favoritesAsProvider  CustomerFavorite[]     @relation("FavoriteProvider")
   auditLogs            AuditLog[]
+  verificationDocumentsReviewed VerificationDocument[] @relation("VerificationDocumentReviewer")
+  verificationHistoryAsAdmin    VerificationHistory[]  @relation("VerificationHistoryAdmin")
 
   @@index([role])
 }
@@ -213,15 +215,30 @@ model Job {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  provider         User     @relation("JobProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  company          Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  assignedEmployee User?    @relation("JobAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  booking          Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider         User           @relation("JobProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  company          Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignedEmployee User?           @relation("JobAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
   review           Review?
+  completion       JobCompletion?
 
   @@index([providerId])
   @@index([companyId])
   @@index([bookingId])
+}
+
+model JobCompletion {
+  id          String   @id @default(uuid())
+  jobId       String   @unique @map("job_id")
+  completedAt DateTime @map("completed_at")
+  notes       String?  @map("notes")
+  photoUrls   String[] @map("photo_urls")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([completedAt])
 }
 
 model ProviderProfile {
@@ -234,7 +251,43 @@ model ProviderProfile {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents  VerificationDocument[]
+  history    VerificationHistory[]
+}
+
+model VerificationDocument {
+  id                 String             @id @default(uuid())
+  profileId          String             @map("profile_id")
+  type               String
+  fileUrl            String             @map("file_url")
+  status             VerificationStatus @default(PENDING)
+  uploadedAt         DateTime           @default(now()) @map("uploaded_at")
+  reviewedAt         DateTime?          @map("reviewed_at")
+  reviewedByAdminId  String?            @map("reviewed_by_admin_id")
+  rejectionReason    String?            @map("rejection_reason")
+
+  profile       ProviderProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  reviewedByAdmin User?         @relation("VerificationDocumentReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([profileId])
+  @@index([status])
+  @@index([reviewedByAdminId])
+}
+
+model VerificationHistory {
+  id          String   @id @default(uuid())
+  profileId   String   @map("profile_id")
+  action      String
+  adminUserId String?  @map("admin_user_id")
+  reason      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile   ProviderProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  adminUser User?           @relation("VerificationHistoryAdmin", fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([profileId])
+  @@index([adminUserId])
 }
 
 model Company {

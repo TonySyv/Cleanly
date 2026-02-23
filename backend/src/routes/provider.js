@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { toJobDto, jobInclude } from './jobs.js';
 
 const router = Router();
 
@@ -62,6 +63,7 @@ router.get('/profile', async (req, res) => {
   if (!profile) {
     return res.json({
       verificationStatus: 'PENDING',
+      verificationNotes: null,
       documentUrls: [],
       offeredServiceIds: [],
     });
@@ -70,6 +72,7 @@ router.get('/profile', async (req, res) => {
     id: profile.id,
     userId: profile.userId,
     verificationStatus: profile.verificationStatus,
+    verificationNotes: profile.verificationNotes ?? null,
     documentUrls: profile.documentUrls || [],
     offeredServiceIds: profile.offeredServiceIds || [],
     createdAt: profile.createdAt.toISOString(),
@@ -79,7 +82,7 @@ router.get('/profile', async (req, res) => {
 
 // PUT /api/v1/provider/profile
 router.put('/profile', async (req, res) => {
-  const { verificationStatus, documentUrls, offeredServiceIds } = req.body ?? {};
+  const { documentUrls, offeredServiceIds } = req.body ?? {};
   const data = {};
   if (Array.isArray(documentUrls)) {
     data.documentUrls = documentUrls.filter((u) => typeof u === 'string');
@@ -91,16 +94,13 @@ router.put('/profile', async (req, res) => {
     });
     data.offeredServiceIds = valid.map((s) => s.id);
   }
-  if (verificationStatus !== undefined && ['PENDING', 'VERIFIED', 'REJECTED'].includes(verificationStatus)) {
-    data.verificationStatus = verificationStatus;
-  }
   const profile = await prisma.providerProfile.upsert({
     where: { userId: req.userId },
     create: {
       userId: req.userId,
       documentUrls: data.documentUrls || [],
       offeredServiceIds: data.offeredServiceIds || [],
-      verificationStatus: data.verificationStatus || 'PENDING',
+      verificationStatus: 'PENDING',
     },
     update: data,
   });
@@ -108,10 +108,82 @@ router.put('/profile', async (req, res) => {
     id: profile.id,
     userId: profile.userId,
     verificationStatus: profile.verificationStatus,
+    verificationNotes: profile.verificationNotes ?? null,
     documentUrls: profile.documentUrls || [],
     offeredServiceIds: profile.offeredServiceIds || [],
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString(),
+  });
+});
+
+// GET /api/v1/provider/documents - list verification documents for current provider/company
+router.get('/documents', async (req, res) => {
+  const profile = await prisma.providerProfile.findUnique({
+    where: { userId: req.userId },
+  });
+  if (!profile) {
+    return res.json([]);
+  }
+  const documents = await prisma.verificationDocument.findMany({
+    where: { profileId: profile.id },
+    orderBy: { uploadedAt: 'desc' },
+  });
+  return res.json(
+    documents.map((d) => ({
+      id: d.id,
+      type: d.type,
+      fileUrl: d.fileUrl,
+      status: d.status,
+      uploadedAt: d.uploadedAt.toISOString(),
+      reviewedAt: d.reviewedAt ? d.reviewedAt.toISOString() : null,
+      reviewedByAdminId: d.reviewedByAdminId ?? null,
+      rejectionReason: d.rejectionReason ?? null,
+    }))
+  );
+});
+
+// POST /api/v1/provider/documents - upload a verification document for current provider/company
+router.post('/documents', async (req, res) => {
+  const { type, fileUrl } = req.body ?? {};
+  const typeTrim = typeof type === 'string' ? type.trim() : '';
+  const fileUrlTrim = typeof fileUrl === 'string' ? fileUrl.trim() : '';
+  if (!typeTrim || !fileUrlTrim) {
+    return errorResponse(res, 'VALIDATION_ERROR', 'type and fileUrl are required');
+  }
+
+  let profile = await prisma.providerProfile.findUnique({
+    where: { userId: req.userId },
+  });
+  if (!profile) {
+    profile = await prisma.providerProfile.create({
+      data: {
+        userId: req.userId,
+        verificationStatus: 'PENDING',
+        verificationNotes: null,
+        documentUrls: [],
+        offeredServiceIds: [],
+      },
+    });
+  }
+
+  const doc = await prisma.verificationDocument.create({
+    data: {
+      profileId: profile.id,
+      type: typeTrim,
+      fileUrl: fileUrlTrim,
+      status: 'PENDING',
+    },
+  });
+
+  return res.status(201).json({
+    id: doc.id,
+    type: doc.type,
+    fileUrl: doc.fileUrl,
+    status: doc.status,
+    uploadedAt: doc.uploadedAt.toISOString(),
+    reviewedAt: doc.reviewedAt ? doc.reviewedAt.toISOString() : null,
+    reviewedByAdminId: doc.reviewedByAdminId ?? null,
+    rejectionReason: doc.rejectionReason ?? null,
   });
 });
 
@@ -195,6 +267,41 @@ router.post('/employees', async (req, res) => {
   });
 });
 
+// PUT /api/v1/provider/employees/:id - update employee (companies only)
+router.put('/employees/:id', async (req, res) => {
+  if (req.role !== 'COMPANY') {
+    return errorResponse(res, 'FORBIDDEN', 'Only companies can update employees', 403);
+  }
+  const company = await prisma.company.findUnique({ where: { ownerId: req.userId } });
+  if (!company) {
+    return errorResponse(res, 'NOT_FOUND', 'Company not found', 404);
+  }
+  const link = await prisma.companyEmployee.findFirst({
+    where: { id: req.params.id, companyId: company.id },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+  if (!link) {
+    return errorResponse(res, 'NOT_FOUND', 'Employee link not found', 404);
+  }
+  const { role } = req.body ?? {};
+  let updated = link;
+  if (typeof role === 'string' && role.trim().length > 0 && role !== link.role) {
+    updated = await prisma.companyEmployee.update({
+      where: { id: link.id },
+      data: { role },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    });
+  }
+  return res.json({
+    id: updated.id,
+    userId: updated.userId,
+    role: updated.role,
+    user: updated.user,
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
+  });
+});
+
 // DELETE /api/v1/provider/employees/:id
 router.delete('/employees/:id', async (req, res) => {
   if (req.role !== 'COMPANY') {
@@ -213,6 +320,26 @@ router.delete('/employees/:id', async (req, res) => {
   await prisma.user.update({ where: { id: link.userId }, data: { companyId: null } });
   await prisma.companyEmployee.delete({ where: { id: link.id } });
   return res.status(204).send();
+});
+
+// GET /api/v1/provider/job-results - completed jobs for this provider or company
+router.get('/job-results', async (req, res) => {
+  const userId = req.userId;
+  const role = req.role;
+  const where =
+    role === 'COMPANY'
+      ? await (async () => {
+          const company = await prisma.company.findUnique({ where: { ownerId: userId } });
+          if (!company) return { providerId: userId, status: 'COMPLETED' };
+          return { OR: [{ providerId: userId }, { companyId: company.id }], status: 'COMPLETED' };
+        })()
+      : { providerId: userId, status: 'COMPLETED' };
+  const jobs = await prisma.job.findMany({
+    where,
+    orderBy: { updatedAt: 'desc' },
+    include: jobInclude,
+  });
+  return res.json(jobs.map(toJobDto));
 });
 
 export default router;

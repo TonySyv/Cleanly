@@ -18,6 +18,8 @@ import addressesRoutes from './routes/addresses.js';
 import jobsRoutes from './routes/jobs.js';
 import providerRoutes from './routes/provider.js';
 import adminServicesRoutes from './routes/admin/services.js';
+import adminProvidersRoutes from './routes/admin/providers.js';
+import adminJobResultsRoutes from './routes/admin/jobResults.js';
 import stripeWebhookRoutes from './routes/webhooks/stripe.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { prisma } from './lib/db.js';
@@ -45,6 +47,8 @@ app.use('/api/v1/addresses', addressesRoutes);
 app.use('/api/v1/jobs', jobsRoutes);
 app.use('/api/v1/provider', providerRoutes);
 app.use('/api/v1/admin/services', adminServicesRoutes);
+app.use('/api/v1/admin/job-results', adminJobResultsRoutes);
+app.use('/api/v1/admin/providers', adminProvidersRoutes);
 
 app.use((err, req, res, next) => {
   const requestId = req.id ?? res.locals?.requestId ?? '-';
@@ -61,7 +65,18 @@ app.use((err, req, res, next) => {
 });
 
 async function main() {
-  await prisma.$connect();
+  try {
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (e) {
+    console.error(
+      'Database connection failed. Check DATABASE_URL in .env.' + (process.env.ENV ? ` (ENV=${process.env.ENV}, file .env.${process.env.ENV})` : '') + '\n' +
+      'If using Neon: ensure the project is not suspended (log into Neon console to wake it).\n' +
+      'Error:',
+      e.message || e
+    );
+    process.exit(1);
+  }
   const host = process.env.HOST || '0.0.0.0';
   app.listen(PORT, host, () => {
     console.log(`Cleanly API running on http://${host}:${PORT}`);

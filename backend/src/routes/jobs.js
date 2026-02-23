@@ -12,6 +12,17 @@ function errorResponse(res, code, message, status = 400) {
   return res.status(status).json({ error: { code, message } });
 }
 
+const jobInclude = {
+  booking: {
+    include: {
+      customer: { select: { id: true, name: true, email: true } },
+      items: { include: { service: true } },
+    },
+  },
+  completion: true,
+  review: true,
+};
+
 function toJobDto(job) {
   const j = job;
   return {
@@ -44,7 +55,26 @@ function toJobDto(job) {
           })),
         }
       : null,
+    completion: j.completion
+      ? {
+          completedAt: j.completion.completedAt.toISOString(),
+          notes: j.completion.notes ?? null,
+          photoUrls: j.completion.photoUrls || [],
+        }
+      : null,
+    review: j.review
+      ? {
+          rating: j.review.rating,
+          comment: j.review.comment ?? null,
+          createdAt: j.review.createdAt.toISOString(),
+        }
+      : null,
   };
+}
+
+function validPhotoUrls(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.filter((u) => typeof u === 'string');
 }
 
 // GET /api/v1/jobs - list jobs for this provider or company
@@ -62,14 +92,7 @@ router.get('/', async (req, res) => {
   const jobs = await prisma.job.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: {
-      booking: {
-        include: {
-          customer: { select: { id: true, name: true, email: true } },
-          items: { include: { service: true } },
-        },
-      },
-    },
+    include: jobInclude,
   });
   return res.json(jobs.map(toJobDto));
 });
@@ -111,6 +134,15 @@ router.post('/', async (req, res) => {
   if (!bookingId) {
     return errorResponse(res, 'VALIDATION_ERROR', 'bookingId is required');
   }
+
+   // Gate job pickup on verification status: only VERIFIED providers/companies can pick up new jobs
+  const profile = await prisma.providerProfile.findUnique({
+    where: { userId: req.userId },
+  });
+  if (!profile || profile.verificationStatus !== 'VERIFIED') {
+    return errorResponse(res, 'FORBIDDEN', 'Complete verification to pick up jobs', 403);
+  }
+
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: { job: true },
@@ -135,14 +167,7 @@ router.post('/', async (req, res) => {
   }
   const job = await prisma.job.create({
     data,
-    include: {
-      booking: {
-        include: {
-          customer: { select: { id: true, name: true, email: true } },
-          items: { include: { service: true } },
-        },
-      },
-    },
+    include: jobInclude,
   });
   return res.status(201).json(toJobDto(job));
 });
@@ -150,17 +175,10 @@ router.post('/', async (req, res) => {
 // PATCH /api/v1/jobs/:id
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const { status, assignedEmployeeId } = req.body ?? {};
+  const { status, assignedEmployeeId, completionNotes, completionPhotoUrls } = req.body ?? {};
   const job = await prisma.job.findUnique({
     where: { id },
-    include: {
-      booking: {
-        include: {
-          customer: { select: { id: true, name: true, email: true } },
-          items: { include: { service: true } },
-        },
-      },
-    },
+    include: jobInclude,
   });
   if (!job) {
     return errorResponse(res, 'NOT_FOUND', 'Job not found', 404);
@@ -170,6 +188,10 @@ router.patch('/:id', async (req, res) => {
   const isCompanyOwner = company && job.companyId === company.id;
   if (!isProvider && !isCompanyOwner) {
     return errorResponse(res, 'FORBIDDEN', 'Access denied', 403);
+  }
+  // Do not allow downgrading from COMPLETED
+  if (job.status === 'COMPLETED' && status !== undefined && status !== 'COMPLETED') {
+    return errorResponse(res, 'VALIDATION_ERROR', 'Cannot change status from COMPLETED', 400);
   }
   const data = {};
   if (status !== undefined && ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status)) {
@@ -187,19 +209,49 @@ router.patch('/:id', async (req, res) => {
       }
     }
   }
-  const updated = await prisma.job.update({
-    where: { id },
-    data,
-    include: {
-      booking: {
-        include: {
-          customer: { select: { id: true, name: true, email: true } },
-          items: { include: { service: true } },
-        },
-      },
-    },
+
+  const completingNow = data.status === 'COMPLETED';
+  const notes = completionNotes != null ? String(completionNotes).trim() || null : undefined;
+  const photoUrls = completionPhotoUrls != null ? validPhotoUrls(completionPhotoUrls) : undefined;
+  const updatingCompletion =
+    completingNow || (job.status === 'COMPLETED' && (notes !== undefined || photoUrls !== undefined));
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.job.update({
+      where: { id },
+      data,
+    });
+    if (updatingCompletion) {
+      const now = new Date();
+      if (job.completion) {
+        const updateData = {};
+        if (notes !== undefined) updateData.notes = notes;
+        if (photoUrls !== undefined) updateData.photoUrls = photoUrls;
+        if (Object.keys(updateData).length > 0) {
+          await tx.jobCompletion.update({
+            where: { jobId: id },
+            data: updateData,
+          });
+        }
+      } else {
+        await tx.jobCompletion.create({
+          data: {
+            jobId: id,
+            completedAt: now,
+            notes: notes ?? null,
+            photoUrls: photoUrls ?? [],
+          },
+        });
+      }
+    }
+    return tx.job.findUnique({
+      where: { id },
+      include: jobInclude,
+    });
   });
+
   return res.json(toJobDto(updated));
 });
 
 export default router;
+export { toJobDto, jobInclude };
